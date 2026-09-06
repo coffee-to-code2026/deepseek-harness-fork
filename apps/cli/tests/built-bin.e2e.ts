@@ -356,13 +356,17 @@ describe.skipIf(!existsSync(dshBin))('dsh BUILT bin (node lib/bin.js, no tsx)', 
       expect(web.stdout).toContain('--port <port>')
       expect(web.stdout).not.toContain('dsh web: http://')
 
+      // All-interfaces binding is now allowed: startup prints a stderr warning
+      // and then keeps serving, so the process never exits and runBuiltBin ends
+      // it with the SIGKILL timeout. Assert only the warning — the startup URL
+      // line is written to stdout, whose pipe buffer may be lost to the kill.
       const wildcardHost = await runBuiltBin(['web', '--host', '0.0.0.0'], {
         DSH_HOME: home,
         DSH_TELEMETRY_DISABLED: '1',
       })
-      expect(wildcardHost.code).toBe(1)
-      expect(wildcardHost.stdout).toBe('')
-      expect(wildcardHost.stderr).toContain('--host 0.0.0.0 is intentionally not supported yet for safety: it would expose remote code execution to the network; use 127.0.0.1 instead')
+      expect(wildcardHost.stderr).toContain('exposes the Harness and its code-execution-capable APIs')
+      // The tokenized dsh web: URL is a stdout readiness line, not an error
+      // message; stderr must never carry it.
       expect(wildcardHost.stderr).not.toContain('dsh web: http://')
 
       const headlessHelp = await runBuiltBin(['--profile', 'headless', '--help'], {
